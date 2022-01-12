@@ -60,7 +60,7 @@ resource "tls_self_signed_cert" "nextcloud" {
     organization = "Martin Household"
   }
 
-  validity_period_hours = 12
+  validity_period_hours = 99999999999
 
   allowed_uses = [
     "key_encipherment",
