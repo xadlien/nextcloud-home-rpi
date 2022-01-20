@@ -12,11 +12,11 @@ provider "docker" {
 }
 
 # password input
-variable "nextcloud_db_mysql_root_password" {  
+variable "nextcloud_db_postgres_root_password" {  
   type = string
 }
 
-variable "nextcloud_db_mysql_password" {  
+variable "nextcloud_db_postgres_password" {  
   type = string
 }
 
@@ -31,8 +31,8 @@ resource "docker_image" "nextcloud" {
     keep_locally = true
 }
 
-resource "docker_image" "mariadb" {
-    name = "mariadb"
+resource "docker_image" "postgres" {
+    name = "postgres"
     keep_locally = true
 }
 resource "docker_image" "nextcloud_ssl" {
@@ -60,7 +60,7 @@ resource "tls_self_signed_cert" "nextcloud" {
     organization = "Martin Household"
   }
 
-  validity_period_hours = 99999999999
+  validity_period_hours = 9999999
 
   allowed_uses = [
     "key_encipherment",
@@ -80,9 +80,9 @@ resource "local_file" "public_key" {
 }
 
 # containers
-resource "docker_container" "nextcloud_mariadb" {
-  image = docker_image.mariadb.latest
-  name  = "nextcloud_mariadb"
+resource "docker_container" "nextcloud_postgres" {
+  image = docker_image.postgres.latest
+  name  = "nextcloud_postgres"
   hostname = "db"
   command = ["--transaction-isolation=READ-COMMITTED", "--binlog-format=ROW", "--innodb-file-per-table=1", "--skip-innodb-read-only-compressed"]
   networks_advanced {
@@ -90,16 +90,15 @@ resource "docker_container" "nextcloud_mariadb" {
   }
   volumes {
     volume_name = "nextcloud_db_data"
-    container_path = "/var/lib/mysql"
+    container_path = "/var/lib/postgresql/data/pgdata"
   }
   env = [
-      "MYSQL_ROOT_PASSWORD=${var.nextcloud_db_mysql_root_password}",
-      "MYSQL_DATABASE=nextcloud",
-      "MYSQL_USER=nextcloud",
-      "MYSQL_PASSWORD=${var.nextcloud_db_mysql_password}"
+      "POSTGRES_DATABASE=nextcloud",
+      "POSTGRES_USER=nextcloud",
+      "POSTGRES_PASSWORD=${var.nextcloud_db_postgres_password}"
   ]
     depends_on = [
-      docker_image.mariadb,
+      docker_image.postgres,
       docker_network.nextcloud_network,
   ]
 }
@@ -132,13 +131,13 @@ resource "docker_container" "nextcloud_app" {
     container_path = "/etc/apache2/sites-available/000-default.conf"
   }
   env = [
-      "MYSQL_PASSWORD=${var.nextcloud_db_mysql_password}",
-      "MYSQL_DATABASE=nextcloud",
-      "MYSQL_USER=nextcloud",
-      "MYSQL_HOST=nextcloud_mariadb"
+      "POSTGRES_PASSWORD=${var.nextcloud_db_postgres_password}",
+      "POSTGRES_DATABASE=nextcloud",
+      "POSTGRES_USER=nextcloud",
+      "POSTGRES_HOST=nextcloud_postgres"
   ]
   depends_on = [
-      docker_container.nextcloud_mariadb,
+      docker_container.nextcloud_postgres,
       docker_image.nextcloud_ssl,
       docker_network.nextcloud_network,
       tls_private_key.nextcloud,
